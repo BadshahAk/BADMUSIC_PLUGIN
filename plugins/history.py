@@ -30,7 +30,7 @@ async def sg(client: Client, message: Message):
             user = await client.get_users(f"{args}")
         except Exception:
             return await lol.edit("<code>Please specify a valid user!</code>")
-    sgbot = ["sangmata_bot", "sangmata_beta_bot"]
+    sgbot = ["sangmata_bot", "SangMata_BOT"]
     sg = random.choice(sgbot)
     BAD = random.choice(assistants)
     ubot = await get_client(BAD)
