@@ -93,30 +93,34 @@ async def save_notee(_, message):
             if replied_message.text:
                 _type = "text"
                 file_id = None
-            if replied_message.sticker:
+            elif replied_message.sticker:
                 _type = "sticker"
                 file_id = replied_message.sticker.file_id
-            if replied_message.animation:
+            elif replied_message.animation:
                 _type = "animation"
                 file_id = replied_message.animation.file_id
-            if replied_message.photo:
+            elif replied_message.photo:
                 _type = "photo"
                 file_id = replied_message.photo.file_id
-            if replied_message.document:
+            elif replied_message.document:
                 _type = "document"
                 file_id = replied_message.document.file_id
-            if replied_message.video:
+            elif replied_message.video:
                 _type = "video"
                 file_id = replied_message.video.file_id
-            if replied_message.video_note:
+            elif replied_message.video_note:
                 _type = "video_note"
                 file_id = replied_message.video_note.file_id
-            if replied_message.audio:
+            elif replied_message.audio:
                 _type = "audio"
                 file_id = replied_message.audio.file_id
-            if replied_message.voice:
+            elif replied_message.voice:
                 _type = "voice"
                 file_id = replied_message.voice.file_id
+            else:
+                _type = "unknown"
+                file_id = None
+                
             if replied_message.reply_markup and not findall(r"\[.+\,.+\]", data):
                 urls = extract_urls(replied_message.reply_markup)
                 if urls:
@@ -196,7 +200,7 @@ async def get_one_note(_, message):
         if "{SURNAME}" in data:
             sname = (
                 message.from_user.last_name
-                if message.from_user.last_name.last_name
+                if message.from_user.last_name
                 else "None"
             )
             data = data.replace("{SURNAME}", sname)
@@ -269,7 +273,7 @@ async def get_one_note_by_hashtag(_, message):
         if "{SURNAME}" in data:
             sname = (
                 message.from_user.last_name
-                if message.from_user.last_name.last_name
+                if message.from_user.last_name
                 else "None"
             )
             data = data.replace("{SURNAME}", sname)
@@ -320,45 +324,45 @@ async def get_reply(message, type, file_id, data, keyb):
             reply_markup=keyb,
             disable_web_page_preview=True,
         )
-    if type == "sticker":
+    elif type == "sticker":
         await message.reply_sticker(
             sticker=file_id,
         )
-    if type == "animation":
+    elif type == "animation":
         await message.reply_animation(
             animation=file_id,
             caption=data,
             reply_markup=keyb,
         )
-    if type == "photo":
+    elif type == "photo":
         await message.reply_photo(
             photo=file_id,
             caption=data,
             reply_markup=keyb,
         )
-    if type == "document":
+    elif type == "document":
         await message.reply_document(
             document=file_id,
             caption=data,
             reply_markup=keyb,
         )
-    if type == "video":
+    elif type == "video":
         await message.reply_video(
             video=file_id,
             caption=data,
             reply_markup=keyb,
         )
-    if type == "video_note":
+    elif type == "video_note":
         await message.reply_video_note(
             video_note=file_id,
         )
-    if type == "audio":
+    elif type == "audio":
         await message.reply_audio(
             audio=file_id,
             caption=data,
             reply_markup=keyb,
         )
-    if type == "voice":
+    elif type == "voice":
         await message.reply_voice(
             voice=file_id,
             caption=data,
