@@ -23,6 +23,7 @@ from BADMUSIC.utils.functions import (
 from BADMUSIC.utils.keyboard import ikb
 from utils.permissions import adminsOnly, member_permissions
 
+private_notes_enabled = {}
 
 def extract_urls(reply_markup):
     urls = []
@@ -39,6 +40,12 @@ def extract_urls(reply_markup):
                     urls.append((f"{name}", button.text, button.url))
     return urls
 
+def extract_custom_urls(data):
+    urls = []
+    matches = findall(r'\[(.+?)\]\(buttonurl://(.+?)\)', data)
+    for match in matches:
+        urls.append((match[0], match[1]))
+    return urls
 
 async def eor(msg: Message, **kwargs):
     func = (
@@ -49,6 +56,21 @@ async def eor(msg: Message, **kwargs):
     spec = getfullargspec(func.__wrapped__).args
     return await func(**{k: v for k, v in kwargs.items() if k in spec})
 
+@app.on_message(filters.command("privatenotes") & filters.group & ~BANNED_USERS)
+@adminsOnly("can_change_info")
+async def toggle_private_notes(_, message):
+    chat_id = message.chat.id
+    if len(message.command) < 2:
+        return await eor(message, text="**Usage:** /privatenotes [on|off]")
+    action = message.command[1].lower()
+    if action == "on":
+        private_notes_enabled[chat_id] = True
+        await eor(message, text="Private notes have been enabled.")
+    elif action == "off":
+        private_notes_enabled[chat_id] = False
+        await eor(message, text="Private notes have been disabled.")
+    else:
+        await eor(message, text="**Usage:** /privatenotes [on|off]")
 
 @app.on_message(filters.command("save") & filters.group & ~BANNED_USERS)
 @adminsOnly("can_change_info")
@@ -102,6 +124,13 @@ async def save_notee(_, message):
                         [f"{name}=[{text}, {url}]" for name, text, url in urls]
                     )
                     data = data + response
+            # Extract custom URLs
+            custom_urls = extract_custom_urls(data)
+            if custom_urls:
+                response = "\n".join(
+                    [f"[{text}]({url})" for text, url in custom_urls]
+                )
+                data = data + response
             if data:
                 data = await check_format(ikb, data)
                 if not data:
@@ -121,7 +150,6 @@ async def save_notee(_, message):
             "**Replied message is inaccessible.\n`Forward the message and try again`**"
         )
 
-
 @app.on_message(filters.command("notes") & filters.group & ~BANNED_USERS)
 @capture_err
 async def get_notes(_, message):
@@ -136,7 +164,6 @@ async def get_notes(_, message):
     for note in _notes:
         msg += f"**-** `{note}`\n"
     await eor(message, text=msg)
-
 
 @app.on_message(filters.command("get") & filters.group & ~BANNED_USERS)
 @capture_err
@@ -201,12 +228,21 @@ async def get_one_note(_, message):
         )
         if replied_user.id != from_user.id:
             message = replied_message
-    await get_reply(message, type, file_id, data, keyb)
-
+    
+    # Determine if private notes are enabled for the chat
+    if private_notes_enabled.get(chat_id, False):
+        await message.reply_text(
+            text="Click the button below to get the note in private chat.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Click here", url=f"t.me/{app.username}?start={name}")]]
+            )
+        )
+    else:
+        await get_reply(message, type, file_id, data, keyb)
 
 @app.on_message(filters.regex(r"^#.+") & filters.text & filters.group & ~BANNED_USERS)
 @capture_err
-async def get_one_note(_, message):
+async def get_one_note_by_hashtag(_, message):
     from_user = message.from_user if message.from_user else message.sender_chat
     chat_id = message.chat.id
     name = message.text.replace("#", "", 1)
@@ -265,8 +301,17 @@ async def get_one_note(_, message):
         )
         if replied_user.id != from_user.id:
             message = replied_message
-    await get_reply(message, type, file_id, data, keyb)
-
+    
+    # Determine if private notes are enabled for the chat
+    if private_notes_enabled.get(chat_id, False):
+        await message.reply_text(
+            text="Click the button below to get the note in private chat.",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Click here", url=f"t.me/{app.username}?start={name}")]]
+            )
+        )
+    else:
+        await get_reply(message, type, file_id, data, keyb)
 
 async def get_reply(message, type, file_id, data, keyb):
     if type == "text":
@@ -320,7 +365,6 @@ async def get_reply(message, type, file_id, data, keyb):
             reply_markup=keyb,
         )
 
-
 @app.on_message(filters.command("delete") & filters.group & ~BANNED_USERS)
 @adminsOnly("can_change_info")
 async def del_note(_, message):
@@ -337,7 +381,6 @@ async def del_note(_, message):
         await eor(message, text=f"**Deleted note {name} successfully.**")
     else:
         await eor(message, text="**No such note.**")
-
 
 @app.on_message(filters.command("deleteall") & filters.group & ~BANNED_USERS)
 @adminsOnly("can_change_info")
@@ -358,7 +401,6 @@ async def delete_all(_, message):
             "**Are you sure you want to delete all the notes in this chat forever ?.**",
             reply_markup=keyboard,
         )
-
 
 @app.on_callback_query(filters.regex("delete_(.*)"))
 async def delete_all_cb(_, cb):
@@ -382,7 +424,6 @@ async def delete_all_cb(_, cb):
         await cb.message.reply_to_message.delete()
         await cb.message.delete()
 
-
 __MODULE__ = "ɴᴏᴛᴇs"
 __HELP__ = """
 **ɴᴏᴛᴇꜱ:**
@@ -392,4 +433,5 @@ __HELP__ = """
 • `/get [NOTE_NAME]`: Gᴇᴛs ᴛʜᴇ ᴄᴏɴᴛᴇɴᴛ ᴏғ ᴀ sᴀᴠᴇᴅ ɴᴏᴛᴇ.
 • `/delete [NOTE_NAME]`: Dᴇʟᴇᴛᴇs ᴀ sᴀᴠᴇᴅ ɴᴏᴛᴇ.
 • `/deleteall`: Dᴇʟᴇᴛᴇs ᴀʟʟ sᴀᴠᴇᴅ ɴᴏᴛᴇꜱ ɪɴ ᴛʜᴇ ᴄʜᴀᴛ.
+• `/privatenotes [on|off]`: ᴇɴᴀʙʟᴇꜱ ᴏʀ ᴅɪꜱᴀʙʟᴇꜱ ꜱᴇɴᴅɪɴɢ ɴᴏᴛᴇꜱ ᴛᴏ ᴘʀɪᴠᴀᴛᴇ ᴄʜᴀᴛ.
 """
